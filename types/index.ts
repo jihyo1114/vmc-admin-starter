@@ -172,10 +172,20 @@ export type DashboardRecentItem = {
   created_at: string;
 };
 
+export type PendingQueueItem = {
+  id: number;
+  merchant_name: string;
+  merchant_category: string;
+  risk_grade: RiskLevel;
+  recommendation: Recommendation;
+  created_at: string;
+};
+
 export type MerchantDashboard = {
   pending_decision: number;
   high_risk: number;
   throughput: { today: number; this_week: number };
   recommendation_dist: { approved: number; rejected: number; need_info: number };
   recent: DashboardRecentItem[];
+  pending_queue: PendingQueueItem[];
 };

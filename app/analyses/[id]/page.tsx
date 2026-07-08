@@ -89,6 +89,7 @@ export default function AnalysisDetailPage({
   const [decisionMemo, setDecisionMemo] = useState('');
   const [savingDecision, setSavingDecision] = useState(false);
   const [decisionError, setDecisionError] = useState('');
+  const [decisionSaved, setDecisionSaved] = useState(false);
 
   // 재심사 상태
   const [reanalyzing, setReanalyzing] = useState(false);
@@ -303,6 +304,7 @@ export default function AnalysisDetailPage({
             }
           : prev
       );
+      setDecisionSaved(true);
     } finally {
       setSavingDecision(false);
     }
@@ -444,6 +446,7 @@ export default function AnalysisDetailPage({
   // ── (c) completed 상태 ───────────────────────────────────────
 
   const perspectives = parsePerspectives(analysis);
+  const reportFirstLine = analysis.report?.split('\n').find((l) => l.trim()) ?? '';
 
   return (
     <>
@@ -452,167 +455,193 @@ export default function AnalysisDetailPage({
         body { background: white !important; }
       `}</style>
 
-      <div className="max-w-3xl mx-auto space-y-4">
-        <div className="flex items-center justify-between no-print">
-          <h1 className="text-xl font-semibold text-gray-900">분석 상세</h1>
+      {decisionSaved && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 no-print">
+          <div className="bg-white rounded-xl shadow-xl p-8 flex flex-col items-center gap-4 min-w-[280px]">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-green-100">
+              <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <p className="text-base font-semibold text-gray-900">결정이 저장되었습니다</p>
+            {analysis.decided_by && (
+              <p className="text-sm text-gray-500">결정자: {analysis.decided_by}</p>
+            )}
+            <Button variant="primary" onClick={() => setDecisionSaved(false)}>
+              확인
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-4 no-print">
+          <h1 className="text-xl font-semibold text-gray-900">{analysis.merchant_name}</h1>
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" onClick={() => window.print()}>
               인쇄 / PDF
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleReanalyze}
-              disabled={reanalyzing}
-            >
+            <Button variant="secondary" size="sm" onClick={handleReanalyze} disabled={reanalyzing}>
               {reanalyzing ? '요청 중...' : '재심사'}
             </Button>
             <a
               href={`/analyses?merchant_id=${analysis.merchant_id}`}
               className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors text-sm px-4 py-2 bg-white hover:bg-gray-50 text-[#0a0a0a] border border-[#e5e5e5]"
             >
-              이 가맹점 이력 보기
+              이력 보기
             </a>
           </div>
         </div>
 
-        {/* 가맹점 정보 */}
-        <MerchantInfoCard analysis={analysis} />
-
-        {/* 종합 위험등급 + AI 권고 */}
-        <Card title="종합 위험등급 및 AI 권고">
-          <div className="flex items-center gap-4">
-            {analysis.risk_grade && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">위험등급</span>
-                <Badge color={RISK_COLOR[analysis.risk_grade]} size="md">
-                  {RISK_LABEL[analysis.risk_grade]}
-                </Badge>
-              </div>
-            )}
-            {analysis.recommendation && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">AI 권고</span>
-                <Badge color={RISK_COLOR[analysis.risk_grade ?? 'low']} size="md">
-                  {RECOMMENDATION_LABEL[analysis.recommendation]}
-                </Badge>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* 관점별 카드 4개 */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {PERSPECTIVE_ORDER.map((key) => {
-            const p = perspectives.find((r) => r.key === key);
-            return (
-              <Card key={key} title={PERSPECTIVE_DISPLAY_TITLE[key]}>
-                {!p ? (
-                  <Badge color="gray">분석불가</Badge>
-                ) : p.status === 'failed' ? (
-                  <Badge color="gray">분석불가</Badge>
-                ) : (
-                  <div className="space-y-2">
-                    <Badge color={RISK_COLOR[p.risk_level]}>{RISK_LABEL[p.risk_level]}</Badge>
-                    <p className="text-sm text-gray-600 leading-relaxed">{p.findings}</p>
-                  </div>
+        <div className="flex gap-6 items-start">
+          {/* ── 좌측 콘텐츠 영역 ─────────────────────────────── */}
+          <div className="flex-1 min-w-0 space-y-4">
+            {/* 요약 카드 */}
+            <div className="bg-white border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center gap-3 mb-3">
+                {analysis.risk_grade && (
+                  <Badge color={RISK_COLOR[analysis.risk_grade]} size="md">
+                    {RISK_LABEL[analysis.risk_grade]}
+                  </Badge>
                 )}
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* 종합 보고서 */}
-        {analysis.report && (
-          <Card title="종합 보고서">
-            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
-              {analysis.report}
-            </p>
-          </Card>
-        )}
-
-        {/* 최종결정 패널 */}
-        <Card title="최종결정">
-          <div className="space-y-4">
-            {/* AI 권고 - 읽기 전용 */}
-            <div>
-              <p className="text-xs font-medium text-gray-500 mb-1">AI 권고 (읽기 전용)</p>
-              {analysis.recommendation ? (
-                <Badge color={RISK_COLOR[analysis.risk_grade ?? 'low']}>
-                  {RECOMMENDATION_LABEL[analysis.recommendation]}
-                </Badge>
-              ) : (
-                <span className="text-sm text-gray-400">없음</span>
+                {analysis.recommendation && (
+                  <Badge color={DECISION_COLOR[analysis.recommendation]} size="md">
+                    {RECOMMENDATION_LABEL[analysis.recommendation]}
+                  </Badge>
+                )}
+              </div>
+              {reportFirstLine && (
+                <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">{reportFirstLine}</p>
               )}
             </div>
 
-            {/* 사람 결정 입력 */}
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  최종 결정
-                </label>
-                <select
-                  value={decisionSelect}
-                  onChange={(e) => setDecisionSelect(e.target.value as Recommendation | '')}
-                  className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 bg-white"
-                >
-                  <option value="">선택하세요</option>
-                  <option value="approved">승인</option>
-                  <option value="rejected">거절</option>
-                  <option value="need_info">추가정보 필요</option>
-                </select>
+            {/* 가맹점 제출 정보 */}
+            <MerchantInfoCard analysis={analysis} />
+
+            {/* 관점별 분석 4개 */}
+            <div>
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">AI 다각도 분석</h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {PERSPECTIVE_ORDER.map((key) => {
+                  const p = perspectives.find((r) => r.key === key);
+                  return (
+                    <Card key={key} title={PERSPECTIVE_DISPLAY_TITLE[key]}>
+                      {!p || p.status === 'failed' ? (
+                        <Badge color="gray">분석불가</Badge>
+                      ) : (
+                        <div className="space-y-2">
+                          <Badge color={RISK_COLOR[p.risk_level]}>{RISK_LABEL[p.risk_level]}</Badge>
+                          <p className="text-sm text-gray-600 leading-relaxed">{p.findings}</p>
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 종합 보고서 */}
+            {analysis.report && (
+              <Card title="종합 보고서">
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                  {analysis.report}
+                </p>
+              </Card>
+            )}
+          </div>
+
+          {/* ── 우측 sticky 패널 ──────────────────────────────── */}
+          <div className="w-72 shrink-0 no-print">
+            <div className="sticky top-6 space-y-3">
+              {/* 위험도 + AI 권고 요약 */}
+              <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">AI 분석 결과</p>
+                {analysis.risk_grade && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">위험도</span>
+                    <Badge color={RISK_COLOR[analysis.risk_grade]} size="md">
+                      {RISK_LABEL[analysis.risk_grade]}
+                    </Badge>
+                  </div>
+                )}
+                {analysis.recommendation && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">AI 권고</span>
+                    <Badge color={DECISION_COLOR[analysis.recommendation]} size="md">
+                      {RECOMMENDATION_LABEL[analysis.recommendation]}
+                    </Badge>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  결정 메모
-                </label>
-                <textarea
-                  value={decisionMemo}
-                  onChange={(e) => setDecisionMemo(e.target.value)}
-                  placeholder="결정 사유를 입력하세요."
-                  rows={3}
-                  className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"
-                />
-              </div>
+              {/* 결정 폼 */}
+              <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">최종 결정</p>
 
-              {decisionError && (
-                <p className="text-sm text-red-600">{decisionError}</p>
-              )}
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">결정</label>
+                  <select
+                    value={decisionSelect}
+                    onChange={(e) => setDecisionSelect(e.target.value as Recommendation | '')}
+                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50"
+                  >
+                    <option value="">선택하세요</option>
+                    <option value="approved">승인</option>
+                    <option value="rejected">거절</option>
+                    <option value="need_info">추가정보 필요</option>
+                  </select>
+                </div>
 
-              <div className="flex justify-end no-print">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">메모</label>
+                  <textarea
+                    value={decisionMemo}
+                    onChange={(e) => setDecisionMemo(e.target.value)}
+                    placeholder="결정 사유를 입력하세요."
+                    rows={3}
+                    className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none bg-gray-50"
+                  />
+                </div>
+
+                {decisionError && <p className="text-xs text-red-600">{decisionError}</p>}
+
                 <Button
                   variant="primary"
+                  className="w-full"
                   onClick={saveDecision}
                   disabled={savingDecision || !decisionSelect}
                 >
-                  {savingDecision ? '저장 중...' : '결정 저장'}
+                  {savingDecision ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      저장 중...
+                    </span>
+                  ) : '결정 저장'}
                 </Button>
+
+                {analysis.decided_by && analysis.decided_at && (
+                  <div className="pt-3 border-t border-gray-100 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">확정 결정</span>
+                      {analysis.final_decision && (
+                        <Badge color={DECISION_COLOR[analysis.final_decision]}>
+                          {DECISION_LABEL[analysis.final_decision]}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      결정자: <span className="text-gray-700 font-medium">{analysis.decided_by}</span>
+                    </p>
+                    <p className="text-xs text-gray-400">{analysis.decided_at}</p>
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* 결정자 정보 (저장 완료 후) */}
-            {analysis.decided_by && analysis.decided_at && (
-              <div className="pt-3 border-t border-gray-100 space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">최종 결정</span>
-                  {analysis.final_decision && (
-                    <Badge color={DECISION_COLOR[analysis.final_decision]}>
-                      {DECISION_LABEL[analysis.final_decision]}
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500">
-                  결정자: <span className="text-gray-700 font-medium">{analysis.decided_by}</span>
-                </p>
-                <p className="text-xs text-gray-500">
-                  결정일시: <span className="text-gray-700">{analysis.decided_at}</span>
-                </p>
-              </div>
-            )}
           </div>
-        </Card>
+        </div>
       </div>
     </>
   );

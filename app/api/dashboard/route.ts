@@ -1,6 +1,6 @@
 import { getDB } from '@/lib/db';
 import { NextResponse } from 'next/server';
-import type { MerchantDashboard, DashboardRecentItem } from '@/types/index';
+import type { MerchantDashboard, DashboardRecentItem, PendingQueueItem } from '@/types/index';
 
 export async function GET() {
   const db = getDB();
@@ -59,6 +59,20 @@ export async function GET() {
     )
     .all() as DashboardRecentItem[];
 
+  const pendingQueue = db
+    .prepare(
+      `SELECT a.id, m.name as merchant_name, m.category as merchant_category,
+        a.risk_grade, a.recommendation, a.created_at
+      FROM analyses a
+      JOIN merchants m ON m.id = a.merchant_id
+      WHERE a.status = 'completed' AND a.final_decision IS NULL
+      ORDER BY
+        CASE a.risk_grade WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END ASC,
+        a.created_at ASC
+      LIMIT 5`,
+    )
+    .all() as PendingQueueItem[];
+
   const body: MerchantDashboard = {
     pending_decision: pendingDecision,
     high_risk: highRisk,
@@ -69,6 +83,7 @@ export async function GET() {
       need_info: distRow.need_info ?? 0,
     },
     recent,
+    pending_queue: pendingQueue,
   };
 
   return NextResponse.json(body);

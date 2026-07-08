@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card';
 import type {
   MerchantDashboard,
   DashboardRecentItem,
+  PendingQueueItem,
   RiskLevel,
   Recommendation,
   AnalysisStatus,
@@ -60,6 +61,15 @@ function isRecommendation(v: string | null): v is Recommendation {
 
 function isAnalysisStatus(v: string): v is AnalysisStatus {
   return v === 'pending' || v === 'running' || v === 'completed' || v === 'failed';
+}
+
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  return `${Math.floor(hr / 24)}일 전`;
 }
 
 function KpiCard({
@@ -155,13 +165,13 @@ export default function DashboardPage() {
       .then((r) => r.json())
       .then((d: MerchantDashboard) => setData(d))
       .catch(() => {
-        // 에러 시 빈 데이터로 처리
         setData({
           pending_decision: 0,
           high_risk: 0,
           throughput: { today: 0, this_week: 0 },
           recommendation_dist: { approved: 0, rejected: 0, need_info: 0 },
           recent: [],
+          pending_queue: [],
         });
       })
       .finally(() => setLoading(false));
@@ -173,6 +183,7 @@ export default function DashboardPage() {
     throughput: { today: 0, this_week: 0 },
     recommendation_dist: { approved: 0, rejected: 0, need_info: 0 },
     recent: [] as DashboardRecentItem[],
+    pending_queue: [] as PendingQueueItem[],
   };
 
   return (
@@ -186,6 +197,61 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-400">불러오는 중...</p>
       ) : (
         <>
+          {d.pending_queue.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900">검토 대기</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">결정이 필요한 분석 건 (위험도 우선)</p>
+                </div>
+                <a
+                  href="/analyses"
+                  className="text-xs text-gray-500 hover:text-gray-900 underline underline-offset-2"
+                >
+                  전체 보기 →
+                </a>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-gray-100 bg-gray-50">
+                    <tr>
+                      <th className="text-left py-2.5 px-4 text-xs font-medium text-gray-500">가맹점명</th>
+                      <th className="text-left py-2.5 px-4 text-xs font-medium text-gray-500">업종</th>
+                      <th className="text-left py-2.5 px-4 text-xs font-medium text-gray-500">위험도</th>
+                      <th className="text-left py-2.5 px-4 text-xs font-medium text-gray-500">AI 권고</th>
+                      <th className="text-left py-2.5 px-4 text-xs font-medium text-gray-500">대기시간</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {d.pending_queue.map((item: PendingQueueItem) => (
+                      <tr
+                        key={item.id}
+                        onClick={() => router.push(`/analyses/${item.id}`)}
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      >
+                        <td className="py-3 px-4 font-medium text-gray-900">{item.merchant_name}</td>
+                        <td className="py-3 px-4 text-gray-600">{item.merchant_category}</td>
+                        <td className="py-3 px-4">
+                          {isRiskLevel(item.risk_grade) ? (
+                            <Badge color={RISK_COLOR[item.risk_grade]}>{RISK_LABEL[item.risk_grade]}</Badge>
+                          ) : <span className="text-gray-300">-</span>}
+                        </td>
+                        <td className="py-3 px-4">
+                          {isRecommendation(item.recommendation) ? (
+                            <Badge color={RECOMMENDATION_COLOR[item.recommendation]}>
+                              {RECOMMENDATION_LABEL[item.recommendation]}
+                            </Badge>
+                          ) : <span className="text-gray-300">-</span>}
+                        </td>
+                        <td className="py-3 px-4 text-gray-400 text-xs">{relativeTime(item.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-4 gap-4 mb-6">
             <KpiCard
               label="미결정 대기"
@@ -270,7 +336,13 @@ export default function DashboardPage() {
                       </td>
                       <td className="py-3 px-3">
                         {isAnalysisStatus(item.status) ? (
-                          <Badge color={STATUS_COLOR[item.status]}>{STATUS_LABEL[item.status]}</Badge>
+                          <Badge color={
+                            item.status === 'completed'
+                              ? item.final_decision ? 'gray' : 'yellow'
+                              : STATUS_COLOR[item.status]
+                          }>
+                            {STATUS_LABEL[item.status]}
+                          </Badge>
                         ) : (
                           <span className="text-gray-300">-</span>
                         )}
