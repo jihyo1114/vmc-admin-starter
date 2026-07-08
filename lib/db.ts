@@ -6,7 +6,7 @@ let db: Database.Database | null = null;
 
 export function getDB(): Database.Database {
   if (db) return db;
-  const dataDir = path.join(process.cwd(), 'data');
+  const dataDir = process.env.DATA_DIR ?? path.join(process.cwd(), 'data');
   fs.mkdirSync(dataDir, { recursive: true });
   const dbPath = path.join(dataDir, 'admin.db');
   db = new Database(dbPath);
