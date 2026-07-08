@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { IBM_Plex_Sans_KR, JetBrains_Mono } from 'next/font/google';
 import { NavLink } from '@/components/ui/NavLink';
 import { UserSessionModal } from '@/components/UserSessionModal';
-import { LayoutDashboard, ShieldAlert, ClipboardList, BookOpen, Settings, FileText, PlusCircle, ListChecks } from 'lucide-react';
+import { LayoutDashboard, Settings, PlusCircle, ListChecks } from 'lucide-react';
 import './globals.css';
 
 const sans = IBM_Plex_Sans_KR({
@@ -19,7 +19,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: '물류 안전사고 AI 분석 시스템',
+  title: '가맹점 위험도 심사',
 };
 
 export const viewport = {
@@ -29,12 +29,8 @@ export const viewport = {
 
 const navItems = [
   { href: '/', label: '대시보드', Icon: LayoutDashboard },
-  { href: '/reports', label: '경위서', Icon: FileText },
-  { href: '/analyze', label: '위험도 분석', Icon: ShieldAlert },
-  { href: '/history', label: '분석 내역', Icon: ClipboardList },
-  { href: '/analyses', label: '가맹점 심사 내역', Icon: ListChecks },
+  { href: '/analyses', label: '심사 내역', Icon: ListChecks },
   { href: '/analyses/new', label: '새 분석', Icon: PlusCircle },
-  { href: '/cases', label: '법원 판례', Icon: BookOpen },
   { href: '/guidelines', label: '세부 지침', Icon: Settings },
 ];
 
@@ -44,8 +40,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={`${sans.variable} ${mono.variable} font-sans antialiased`}>
         <aside className="fixed left-0 top-0 h-full w-52 bg-[#0a0a0a] flex flex-col print:hidden">
           <div className="p-5 border-b border-white/10">
-            <div className="text-white/40 text-xs font-mono tracking-widest uppercase mb-1">Logistics</div>
-            <div className="text-white text-sm font-semibold">안전사고 AI 분석</div>
+            <div className="text-white/40 text-xs font-mono tracking-widest uppercase mb-1">VMC Admin</div>
+            <div className="text-white text-sm font-semibold">가맹점 위험도 심사</div>
           </div>
           <nav className="flex flex-col py-2 flex-1">
             {navItems.map(({ href, label, Icon }) => (

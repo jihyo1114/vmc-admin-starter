@@ -157,11 +157,17 @@ export default function AnalysesPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((a) => (
+                filtered.map((a) => {
+                  const needsDecision = a.status === 'completed' && !a.final_decision;
+                  return (
                   <tr
                     key={a.id}
                     onClick={() => router.push(`/analyses/${a.id}`)}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    className={`cursor-pointer transition-colors border-l-2 ${
+                      needsDecision
+                        ? 'border-l-amber-400 bg-amber-50 hover:bg-amber-100'
+                        : 'border-l-transparent hover:bg-gray-50'
+                    }`}
                   >
                     <td className="px-4 py-3 font-medium text-gray-900">{a.merchant_name}</td>
                     <td className="px-4 py-3 text-gray-600">{a.merchant_category}</td>
@@ -191,11 +197,18 @@ export default function AnalysesPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge color={STATUS_COLOR[a.status]}>{STATUS_LABEL[a.status]}</Badge>
+                      <Badge color={
+                        a.status === 'completed'
+                          ? a.final_decision ? 'gray' : 'yellow'
+                          : STATUS_COLOR[a.status]
+                      }>
+                        {STATUS_LABEL[a.status]}
+                      </Badge>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{a.created_at}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">{a.created_at.slice(0, 10)}</td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
